@@ -1,0 +1,6 @@
+commands to run
+
+docker build -t dfdash-cpu .
+docker run --rm -p 8501:8501 -v %CD%:/app dfdash-cpu   # if use PowerShell on Windows
+# or
+docker run --rm -p 8501:8501 -v "$(pwd):/app" dfdash-cpu
