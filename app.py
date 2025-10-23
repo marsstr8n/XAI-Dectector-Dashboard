@@ -4,6 +4,8 @@ import numpy as np
 from PIL import Image
 import streamlit as st
 import torch
+import base64
+from openai import OpenAI
 
 # --- detector & wrappers ---
 from df_detectors.xception_min import model as xcep_model, device as xcep_device, predict_proba
@@ -105,7 +107,8 @@ with right:
     tabs = st.tabs([
         "Grad-CAM++", "Guided Backprop", "Guided Grad-CAM",
         "LIME (contours)", "SHAP (grid dots)",
-        "Occlusion (custom)", "Sobol (grid)"
+        "Occlusion (custom)", "Sobol (grid)",
+        "FakeVLM"
     ])
 
     with tabs[0]:
@@ -183,3 +186,39 @@ with right:
                 batch=32,
             )
         st.image(sobol_overlay, caption="Sobol grid (red=↑fake, blue=↓fake)", width=IMG_W)
+
+    with tabs[7]:
+        with st.spinner("FakeVLM…"):
+            # Convert to PIL image
+            img_pil = Image.fromarray(img)
+
+            # Encode to base64
+            buffer = io.BytesIO()
+            img_pil.save(buffer, format="PNG")
+            base64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+            system_hint = (
+                "You are a precise image authenticity classifier. "
+                "Given a single image and a short prompt, decide if the image is 'real' or 'fake'. "
+                "Start your first sentence with exactly 'real.' or 'fake.' then optionally a brief reason."
+            )
+            question = "Does the image looks like real/fake?"
+
+            contents = [
+                {"type": "text", "text": system_hint},
+                {"type": "text", "text": question},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_img}"}},
+            ]
+
+            client = OpenAI(api_key='-', base_url='http://localhost:8999/v1')
+
+            resp = client.chat.completions.create(
+                model='fakevlm',
+                messages=[
+                    {"role": "user", "content": contents},
+                ],
+                temperature=0.0,
+                max_tokens=128
+            )
+
+        st.write(resp.choices[0].message.content)
