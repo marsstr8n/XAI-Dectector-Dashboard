@@ -6,6 +6,7 @@ import streamlit as st
 import torch
 import base64
 from openai import OpenAI
+import requests
 
 # --- detector & wrappers ---
 from df_detectors.xception_min import model as xcep_model, device as xcep_device, predict_proba
@@ -108,7 +109,7 @@ with right:
         "Grad-CAM++", "Guided Backprop", "Guided Grad-CAM",
         "LIME (contours)", "SHAP (grid dots)",
         "Occlusion (custom)", "Sobol (grid)",
-        "FakeVLM"
+        "FakeVLM", "FakeShield"
     ])
 
     with tabs[0]:
@@ -222,3 +223,34 @@ with right:
             )
 
         st.write(resp.choices[0].message.content)
+
+    with tabs[8]:
+        with st.spinner("FakeShield…"):
+            # Convert to PIL image
+            img_pil = Image.fromarray(img)
+
+            # Encode to base64
+            buffer = io.BytesIO()
+            img_pil.save(buffer, format="jpeg")
+            base64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+            image_data = base64.b64decode(base64_img)
+
+            files = {"file": ("input.jpg", io.BytesIO(image_data), "image/jpeg")}
+            response = requests.post("http://localhost:8998/analyze", files=files, params={"include_image_b64": True})
+            
+            results = response.json().get("results", {}) or {}
+            dte_fdm = results.get("dte_fdm") or {}
+            data = dte_fdm.get("data") or {}
+            outputs = data.get("outputs") or "No explanation generated."
+
+            mflm_b64 = results.get("mflm") or {}
+            data_b64 = mflm_b64.get("data_b64") or None
+
+            st.write(outputs)
+
+            if data_b64:
+                img_bytes = base64.b64decode(data_b64)
+                st.image(io.BytesIO(img_bytes), caption="Mask", width=IMG_W)
+            else:
+                st.write("No mask generated.")
