@@ -2,6 +2,7 @@ import os
 import json
 import base64
 import pathlib
+import tempfile
 import traceback
 from typing import Any, Dict, Optional
 
@@ -19,10 +20,7 @@ DTE_FDM_OUTPUT = os.getenv("DTE_FDM_OUTPUT", "/workspace/FakeShield/out/dte_fdm.
 MFLM_OUTPUT = os.getenv("MFLM_OUTPUT", "/workspace/FakeShield/out/mflm_output/input.jpg")
 
 # Your script paths
-CONDA_ROOT = "/root/anaconda3"
-CONDA_SH = f"{CONDA_ROOT}/etc/profile.d/conda.sh"
-ENV_NAME = os.getenv("CONDA_ENV", "fakeshield")  # default to fakeshield
-PIPELINE_SCRIPT = os.getenv("PIPELINE_SCRIPT", "/workspace/FakeShield/scripts/cli_demo.sh")
+PIPELINE_SCRIPT = os.getenv("PIPELINE_SCRIPT", "/workspace/FakeShield/scripts/analyze.sh")
 
 
 def _safe_delete(path: str):
@@ -95,7 +93,7 @@ def _read_image_b64(path: str) -> Dict[str, Any]:
 
 def _run_pipeline(image_path: str) -> str:
     """
-    Run cli_demo.sh inside the 'fakeshield' Conda environment.
+    Run analyze.sh
     We export IMAGE_PATH/DTE_FDM_OUTPUT/MFLM_OUTPUT into the script's env.
     """
     # Ensure target dirs exist
@@ -109,9 +107,7 @@ def _run_pipeline(image_path: str) -> str:
     env["DTE_FDM_OUTPUT"] = DTE_FDM_OUTPUT
     env["MFLM_OUTPUT"] = MFLM_OUTPUT
 
-    # Use bash -lc so 'source conda.sh && conda activate' works
     cmd = (
-        f"source {CONDA_SH} && conda activate {ENV_NAME} && "
         f"bash {PIPELINE_SCRIPT}"
     )
 
@@ -168,3 +164,4 @@ async def analyze(file: UploadFile = File(...)):
     except Exception as e:
         tb = traceback.format_exc()
         raise HTTPException(status_code=500, detail=f"{e}\n{tb}")
+
